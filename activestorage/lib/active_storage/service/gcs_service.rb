@@ -7,9 +7,8 @@ module ActiveStorage
   # Wraps the Google Cloud Storage as an Active Storage service. See ActiveStorage::Service for the generic API
   # documentation that applies to all services.
   class Service::GCSService < Service
-    def initialize(public: false, **config)
+    def initialize(**config)
       @config = config
-      @public = public
     end
 
     def upload(key, io, checksum: nil, content_type: nil, disposition: nil, filename: nil)
@@ -82,6 +81,19 @@ module ActiveStorage
       end
     end
 
+    def url(key, expires_in:, filename:, content_type:, disposition:)
+      instrument :url, key: key do |payload|
+        generated_url = file_for(key).signed_url expires: expires_in, query: {
+          "response-content-disposition" => content_disposition_with(type: disposition, filename: filename),
+          "response-content-type" => content_type
+        }
+
+        payload[:url] = generated_url
+
+        generated_url
+      end
+    end
+
     def url_for_direct_upload(key, expires_in:, checksum:, **)
       instrument :url, key: key do |payload|
         generated_url = bucket.signed_url key, method: "PUT", expires: expires_in, content_md5: checksum
@@ -92,25 +104,11 @@ module ActiveStorage
       end
     end
 
-    def headers_for_direct_upload(key, checksum:, filename: nil, disposition: nil, **)
-      content_disposition = content_disposition_with(type: disposition, filename: filename) if filename
-
-      { "Content-MD5" => checksum, "Content-Disposition" => content_disposition }
+    def headers_for_direct_upload(key, checksum:, **)
+      { "Content-MD5" => checksum }
     end
 
     private
-      def private_url(key, expires_in:, filename:, content_type:, disposition:, **)
-        file_for(key).signed_url expires: expires_in, query: {
-          "response-content-disposition" => content_disposition_with(type: disposition, filename: filename),
-          "response-content-type" => content_type
-        }
-      end
-
-      def public_url(key, **)
-        file_for(key).public_url
-      end
-
-
       attr_reader :config
 
       def file_for(key, skip_lookup: true)

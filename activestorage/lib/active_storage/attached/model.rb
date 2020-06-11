@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "active_support/core_ext/object/try"
-
 module ActiveStorage
   # Provides the class-level DSL for declaring an Active Record model's attachments.
   module Attached::Model
@@ -10,7 +8,7 @@ module ActiveStorage
     class_methods do
       # Specifies the relation between a single attachment and the model.
       #
-      #   class User < ApplicationRecord
+      #   class User < ActiveRecord::Base
       #     has_one_attached :avatar
       #   end
       #
@@ -32,19 +30,8 @@ module ActiveStorage
       #
       # If the +:dependent+ option isn't set, the attachment will be purged
       # (i.e. destroyed) whenever the record is destroyed.
-      #
-      # If you need the attachment to use a service which differs from the globally configured one,
-      # pass the +:service+ option. For instance:
-      #
-      #   class User < ActiveRecord::Base
-      #     has_one_attached :avatar, service: :s3
-      #   end
-      #
-      def has_one_attached(name, dependent: :purge_later, service: nil)
-        validate_service_configuration(name, service)
-
+      def has_one_attached(name, dependent: :purge_later)
         generated_association_methods.class_eval <<-CODE, __FILE__, __LINE__ + 1
-          # frozen_string_literal: true
           def #{name}
             @active_storage_attached ||= {}
             @active_storage_attached[:#{name}] ||= ActiveStorage::Attached::One.new("#{name}", self)
@@ -69,19 +56,16 @@ module ActiveStorage
 
         after_commit(on: %i[ create update ]) { attachment_changes.delete(name.to_s).try(:upload) }
 
-        reflection = ActiveRecord::Reflection.create(
-          :has_one_attached,
+        ActiveRecord::Reflection.add_attachment_reflection(
+          self,
           name,
-          nil,
-          { dependent: dependent, service_name: service },
-          self
+          ActiveRecord::Reflection.create(:has_one_attached, name, nil, { dependent: dependent }, self)
         )
-        ActiveRecord::Reflection.add_attachment_reflection(self, name, reflection)
       end
 
       # Specifies the relation between multiple attachments and the model.
       #
-      #   class Gallery < ApplicationRecord
+      #   class Gallery < ActiveRecord::Base
       #     has_many_attached :photos
       #   end
       #
@@ -103,19 +87,8 @@ module ActiveStorage
       #
       # If the +:dependent+ option isn't set, all the attachments will be purged
       # (i.e. destroyed) whenever the record is destroyed.
-      #
-      # If you need the attachment to use a service which differs from the globally configured one,
-      # pass the +:service+ option. For instance:
-      #
-      #   class Gallery < ActiveRecord::Base
-      #     has_many_attached :photos, service: :s3
-      #   end
-      #
-      def has_many_attached(name, dependent: :purge_later, service: nil)
-        validate_service_configuration(name, service)
-
+      def has_many_attached(name, dependent: :purge_later)
         generated_association_methods.class_eval <<-CODE, __FILE__, __LINE__ + 1
-          # frozen_string_literal: true
           def #{name}
             @active_storage_attached ||= {}
             @active_storage_attached[:#{name}] ||= ActiveStorage::Attached::Many.new("#{name}", self)
@@ -157,24 +130,12 @@ module ActiveStorage
 
         after_commit(on: %i[ create update ]) { attachment_changes.delete(name.to_s).try(:upload) }
 
-        reflection = ActiveRecord::Reflection.create(
-          :has_many_attached,
+        ActiveRecord::Reflection.add_attachment_reflection(
+          self,
           name,
-          nil,
-          { dependent: dependent, service_name: service },
-          self
+          ActiveRecord::Reflection.create(:has_many_attached, name, nil, { dependent: dependent }, self)
         )
-        ActiveRecord::Reflection.add_attachment_reflection(self, name, reflection)
       end
-
-      private
-        def validate_service_configuration(association_name, service)
-          if service.present?
-            ActiveStorage::Blob.services.fetch(service) do
-              raise ArgumentError, "Cannot configure service :#{service} for #{name}##{association_name}"
-            end
-          end
-        end
     end
 
     def attachment_changes #:nodoc:

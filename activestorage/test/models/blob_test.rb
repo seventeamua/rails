@@ -22,7 +22,7 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
     data = "First file"
     blob = create_blob data: data
 
-    assert_raises ActiveRecord::RecordNotUnique do
+    assert_raise ActiveRecord::RecordNotUnique do
       ActiveStorage::Blob.stub :generate_unique_secure_token, blob.key do
         create_blob data: "This would overwrite"
       end
@@ -33,9 +33,7 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
 
   test "create_after_upload! has the same effect as create_and_upload!" do
     data = "Some other, even more funky file"
-    blob = assert_deprecated do
-      ActiveStorage::Blob.create_after_upload!(io: StringIO.new(data), filename: "funky.bin")
-    end
+    blob = ActiveStorage::Blob.create_after_upload!(io: StringIO.new(data), filename: "funky.bin")
 
     assert blob.persisted?
     assert_equal data, blob.download
@@ -43,12 +41,10 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
 
   test "build_after_upload uploads to service but does not save the Blob" do
     data = "A potentially overwriting file"
-    blob = assert_deprecated do
-      ActiveStorage::Blob.build_after_upload(io: StringIO.new(data), filename: "funky.bin")
-    end
+    blob = ActiveStorage::Blob.build_after_upload(io: StringIO.new(data), filename: "funky.bin")
 
     assert_not blob.persisted?
-    assert_equal data, blob.download
+    assert_equal "A potentially overwriting file", blob.download
   end
 
   test "create_and_upload sets byte size and checksum" do
@@ -84,23 +80,10 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
     assert_match(/^[a-z0-9]{28}$/, create_blob.key)
   end
 
-  test "create_and_upload accepts a custom key" do
-    key  = SecureRandom.base36(28)
-    data = "Hello world!"
-    blob = create_blob key: key, data: data
-
-    assert_equal key, blob.key
-    assert_equal data, blob.download
-  end
-
   test "create_and_upload accepts a record for overrides" do
     assert_nothing_raised do
       create_blob(record: User.new)
     end
-  end
-
-  test "build_after_unfurling generates a 28-character base36 key" do
-    assert_match(/^[a-z0-9]{28}$/, build_blob_after_unfurling.key)
   end
 
   test "image?" do
@@ -139,8 +122,8 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
       blob.open do |file|
         assert file.binmode?
         assert_equal 0, file.pos
-        assert File.basename(file.path).start_with?("ActiveStorage-#{blob.id}-")
-        assert file.path.end_with?(".jpg")
+        assert File.basename(file.path).starts_with?("ActiveStorage-#{blob.id}-")
+        assert file.path.ends_with?(".jpg")
         assert_equal file_fixture("racecar.jpg").binread, file.read, "Expected downloaded file to match fixture file"
       end
     end
@@ -161,7 +144,7 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
       assert file.binmode?
       assert_equal 0, file.pos
       assert_match(/\.jpg\z/, file.path)
-      assert file.path.start_with?(tmpdir)
+      assert file.path.starts_with?(tmpdir)
       assert_equal file_fixture("racecar.jpg").binread, file.read, "Expected downloaded file to match fixture file"
     end
   end
@@ -170,8 +153,8 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
     blob = create_blob
 
     freeze_time do
-      assert_equal expected_url_for(blob), blob.url
-      assert_equal expected_url_for(blob, disposition: :attachment), blob.url(disposition: :attachment)
+      assert_equal expected_url_for(blob), blob.service_url
+      assert_equal expected_url_for(blob, disposition: :attachment), blob.service_url(disposition: :attachment)
     end
   end
 
@@ -179,8 +162,8 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
     blob = create_blob(content_type: "text/html")
 
     freeze_time do
-      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/octet-stream"), blob.url
-      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/octet-stream"), blob.url(disposition: :inline)
+      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/octet-stream"), blob.service_url
+      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/octet-stream"), blob.service_url(disposition: :inline)
     end
   end
 
@@ -188,8 +171,8 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
     blob = create_blob(content_type: "application/zip")
 
     freeze_time do
-      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/zip"), blob.url
-      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/zip"), blob.url(disposition: :inline)
+      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/zip"), blob.service_url
+      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/zip"), blob.service_url(disposition: :inline)
     end
   end
 
@@ -198,10 +181,10 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
     new_filename = ActiveStorage::Filename.new("new.txt")
 
     freeze_time do
-      assert_equal expected_url_for(blob), blob.url
-      assert_equal expected_url_for(blob, filename: new_filename), blob.url(filename: new_filename)
-      assert_equal expected_url_for(blob, filename: new_filename), blob.url(filename: "new.txt")
-      assert_equal expected_url_for(blob, filename: blob.filename), blob.url(filename: nil)
+      assert_equal expected_url_for(blob), blob.service_url
+      assert_equal expected_url_for(blob, filename: new_filename), blob.service_url(filename: new_filename)
+      assert_equal expected_url_for(blob, filename: new_filename), blob.service_url(filename: "new.txt")
+      assert_equal expected_url_for(blob, filename: blob.filename), blob.service_url(filename: nil)
     end
   end
 
@@ -218,7 +201,7 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
       thumb_mode: "crop"
     ]
     assert_called_with(blob.service, :url, arguments) do
-      blob.url(thumb_size: "300x300", thumb_mode: "crop")
+      blob.service_url(thumb_size: "300x300", thumb_mode: "crop")
     end
   end
 
@@ -245,28 +228,14 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
     end
   end
 
-  test "uses service from blob when provided" do
-    with_service("mirror") do
-      blob = create_blob(filename: "funky.jpg", service_name: :local)
-      assert_instance_of ActiveStorage::Service::DiskService, blob.service
-    end
-  end
-
-  test "invalidates record when provided service_name is invalid" do
-    blob = create_blob(filename: "funky.jpg")
-    blob.update(service_name: :unknown)
-
-    assert_not blob.valid?
-    assert_equal ["is invalid"], blob.errors[:service_name]
-  end
-
   private
-    def expected_url_for(blob, disposition: :attachment, filename: nil, content_type: nil, service_name: :local)
+    def expected_url_for(blob, disposition: :attachment, filename: nil, content_type: nil)
       filename ||= blob.filename
       content_type ||= blob.content_type
 
-      key_params = { key: blob.key, disposition: ActionDispatch::Http::ContentDisposition.format(disposition: disposition, filename: filename.sanitized), content_type: content_type, service_name: service_name }
+      query = { disposition: ActionDispatch::Http::ContentDisposition.format(disposition: disposition, filename: filename.sanitized), content_type: content_type }
+      key_params = { key: blob.key }.merge(query)
 
-      "https://example.com/rails/active_storage/disk/#{ActiveStorage.verifier.generate(key_params, expires_in: 5.minutes, purpose: :blob_key)}/#{filename}"
+      "https://example.com/rails/active_storage/disk/#{ActiveStorage.verifier.generate(key_params, expires_in: 5.minutes, purpose: :blob_key)}/#{filename}?#{query.to_param}"
     end
 end

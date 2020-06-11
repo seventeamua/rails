@@ -18,10 +18,10 @@ module ActiveStorage
       end
     end
 
-    def preview(**options)
+    def preview
       download_blob_to_tempfile do |input|
         draw_relevant_frame_from input do |output|
-          yield io: output, filename: "#{blob.filename.base}.jpg", content_type: "image/jpeg", **options
+          yield io: output, filename: "#{blob.filename.base}.jpg", content_type: "image/jpeg"
         end
       end
     end

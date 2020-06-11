@@ -29,16 +29,12 @@ module ActiveStorage::Blob::Analyzable
     update! metadata: metadata.merge(extract_metadata_via_analyzer)
   end
 
-  # Enqueues an ActiveStorage::AnalyzeJob which calls #analyze, or calls #analyze inline based on analyzer class configuration.
+  # Enqueues an ActiveStorage::AnalyzeJob which calls #analyze.
   #
   # This method is automatically called for a blob when it's attached for the first time. You can call it to analyze a blob
   # again (e.g. if you add a new analyzer or modify an existing one).
   def analyze_later
-    if analyzer_class.analyze_later?
-      ActiveStorage::AnalyzeJob.perform_later(self)
-    else
-      analyze
-    end
+    ActiveStorage::AnalyzeJob.perform_later(self)
   end
 
   # Returns true if the blob has been analyzed.

@@ -20,10 +20,10 @@ module ActiveStorage
       end
     end
 
-    def preview(**options)
+    def preview
       download_blob_to_tempfile do |input|
         draw_first_page_from input do |output|
-          yield io: output, filename: "#{blob.filename.base}.png", content_type: "image/png", **options
+          yield io: output, filename: "#{blob.filename.base}.png", content_type: "image/png"
         end
       end
     end
