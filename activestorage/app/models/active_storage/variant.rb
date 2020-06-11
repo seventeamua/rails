@@ -95,28 +95,28 @@ class ActiveStorage::Variant
       service.exist?(key)
     end
 
-	def process
-      blob.open do |input|
-        variation.transform(input, format: format) do |output|
-          service.upload(key, output, content_type: content_type)
-        end
-      end
-    end
-
-
-    #def process
-    #  blob.open do |image|
-   #     transform(image) { |output| upload(output) }
+   #def process
+   #   blob.open do |input|
+   #     variation.transform(input, format: format) do |output|
+   #       service.upload(key, output, content_type: content_type)
+   #     end
    #   end
    # end
 
-   # def transform(image, &block)
-   #   variation.transform(image, format: format, &block)
-   # end
 
-   # def upload(file)
-  #    service.upload(key, file)
-   # end
+    def process
+      blob.open do |image|
+        transform(image) { |output| upload(output) }
+      end
+    end
+
+    def transform(image, &block)
+      variation.transform(image, format: format, &block)
+    end
+
+    def upload(file)
+      service.upload(key, file)
+    end
 
 
     def specification
